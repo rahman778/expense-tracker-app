@@ -1,25 +1,22 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
-import { toast } from "react-toastify";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { toast, Zoom } from "react-toastify";
 
 import Table from "../components/core/Table";
+import AnimateSpin from "../components/indicators/AnimateSpin";
+import OverlayIndicator from "../components/indicators/OverlayIndicator";
 import { Column } from "../types/Column";
 import { ExpenseData } from "../types/ExpenseData";
-import { expenseApiHooks } from "../api/expenseApi";
-
-import {
-  PencilSquareIcon,
-  TrashIcon,
-  PlusIcon,
-} from "@heroicons/react/24/outline";
-import ExpenseDialog from "../components/dialogs/ExpenseDialog";
-import { useForm } from "react-hook-form";
-import Dropdown from "../components/forms/Dropdown";
 import useQueryParams from "../hooks/useQueryParams";
 import { getCurrentUnixTimestamp } from "../utils/dateUtils";
-import AnimateSpin from "../components/indicators/AnimateSpin";
-import { categoryOptions, sortingOptions } from "../data/options";
+import { expenseApiHooks } from "../api/expenseApi";
+import { categoryOptions } from "../data/options";
+import { PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
+import Error from "../components/core/Error";
+import ExpenseHeader from "../components/headers/ExpenseHeader";
+
+const ExpenseDialog = lazy(() => import("../components/dialogs/ExpenseDialog"));
 
 const ExpensePage: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
@@ -37,6 +34,7 @@ const ExpensePage: React.FC = () => {
   const expenseFormControl = useForm({ mode: "onSubmit" });
 
   const { updateQueryParam, getQueryParam } = useQueryParams();
+
   const sort = getQueryParam("sort") || "createdAt_desc";
   const category = getQueryParam("category") || "";
 
@@ -49,13 +47,24 @@ const ExpensePage: React.FC = () => {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    refetch,
   } = useFetchExpenses(category, sortBy, order);
 
-  const { mutate: addExpense } = useCreateExpense();
+  const { mutate: addExpense, isPaused } = useCreateExpense();
 
   const { mutate: updateExpense } = useUpdateExpense();
 
-  const { mutate: deleteExpense } = useDeleteExpense();
+  const { mutate: deleteExpense, isPending: isDeleting } = useDeleteExpense();
+
+  useEffect(() => {
+    if (isPaused) {
+      toast.info("Offline mode: Expense data will sync when you're online", {
+        position: "bottom-right",
+        transition: Zoom,
+        hideProgressBar: true,
+      });
+    }
+  }, [isPaused]);
 
   const onSubmit = async (values: ExpenseData) => {
     try {
@@ -66,7 +75,7 @@ const ExpensePage: React.FC = () => {
           ...values,
           createdAt: getCurrentUnixTimestamp(), // Add the createdAt field in unix format
         };
-        addExpense(expenseData);
+        await addExpense(expenseData);
       }
     } catch (error) {
     } finally {
@@ -92,7 +101,14 @@ const ExpensePage: React.FC = () => {
   const columns: Column<ExpenseData>[] = useMemo(
     () => [
       { header: "Title", key: "title" },
-      { header: "Amount", key: "amount" },
+      {
+        header: "Amount",
+        key: "amount",
+        render: (row) => {
+          const amount = parseFloat(String(row?.amount));
+          return isNaN(amount) ? "$ 0.00" : `$ ${amount.toFixed(2)}`;
+        },
+      },
       {
         header: "Category",
         key: "category",
@@ -137,85 +153,54 @@ const ExpensePage: React.FC = () => {
   );
 
   const flattenedData = expenseData?.pages.flatMap((page) => page.data) || [];
-  return (
-    <div className="m-5">
-      <div className="flex justify-between items-center mb-8 flex-wrap">
-        <div className="max-w-[300px] flex gap-x-2 items-center mt-3 md:mt-0 relative">
-          <label className="label text-md w-[70px]" htmlFor="category">
-            Category
-          </label>
-          <Dropdown
-            options={categoryOptions}
-            name="category"
-            selectedItem={category}
-            placeholder="Select"
-            className="py-2 cursor-pointer"
-            onChange={(value: any) => {
-              updateQueryParam("category", value);
-            }}
-            position="top-[40px]"
-            hoverExpand
-          />
-        </div>
 
-        <div className="max-w-[280px] flex gap-x-2 items-center mt-3 md:mt-0">
-          <label className="label text-md w-[70px]" htmlFor="sort">
-            Sort by
-          </label>
-          <Dropdown
-            options={sortingOptions}
-            name="sort"
-            selectedItem={sort}
-            placeholder="Sort By"
-            className="py-2 cursor-pointer"
-            onChange={(value: any) => {
-              updateQueryParam("sort", value);
-            }}
-            position="top-[40px]"
-            hoverExpand
-          />
-        </div>
-
-        <button
-          onClick={handleAddExpense}
-          className="button primary-btn flex gap-1 mt-3 md:mt-0"
-        >
-          <PlusIcon className="h-5 w-5 text-white stroke-2" />
-          <span className="text-md">Add Expenses</span>
-        </button>
-      </div>
-
-      <Table columns={columns} data={flattenedData} />
-
-      {/* Load More button */}
-      {hasNextPage && (
-        <div className="text-center">
-          <button
-            onClick={() => fetchNextPage()}
-            disabled={isFetchingNextPage}
-            className="button primary-btn-outline click-transition mt-5 w-32"
-          >
-            {isFetchingNextPage ? <AnimateSpin /> : "Load More"}
-          </button>
-        </div>
-      )}
-
-      {(error || flattenedData.length < 1) && !isLoading && (
-        <div>No data found</div>
-      )}
-
-      {/* Initial loading indicator */}
-      {isLoading && <div>Loading...</div>}
-
-      <ExpenseDialog
-        modalIsOpen={isDialogOpen}
-        onClose={() => handleCloseModal()}
-        formControl={expenseFormControl}
-        expenseID={selectedExpenseID}
-        onSubmit={onSubmit}
-        isLoading={isLoading}
+  if (error) {
+    return (
+      <Error
+        onRetry={() => {
+          updateQueryParam("category", null);
+          refetch();
+        }}
       />
-    </div>
+    );
+  }
+
+  return (
+    <>
+      {(isLoading || isDeleting) && <OverlayIndicator />}
+      <div className="m-3 md:m-5">
+        {/* Expense header section */}
+        <ExpenseHeader handleAddExpense={handleAddExpense} />
+
+        {/* List of expenses */}
+        <Table columns={columns} data={flattenedData} isLoading={isLoading} />
+
+        {/* Load More button */}
+        {hasNextPage && (
+          <div className="text-center">
+            <button
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="button primary-btn-outline click-transition mt-5 w-32"
+            >
+              {isFetchingNextPage ? <AnimateSpin /> : "Load More"}
+            </button>
+          </div>
+        )}
+
+        {/* Expense Dialog lazy import*/}
+        <Suspense fallback={null}>
+          <ExpenseDialog
+            modalIsOpen={isDialogOpen}
+            onClose={() => handleCloseModal()}
+            formControl={expenseFormControl}
+            expenseID={selectedExpenseID}
+            onSubmit={onSubmit}
+            isLoading={isLoading}
+          />
+        </Suspense>
+      </div>
+    </>
   );
 };
 

@@ -1,22 +1,21 @@
 import {
   useInfiniteQuery,
-  UseInfiniteQueryOptions,
   useMutation,
   UseMutationOptions,
   useQuery,
   UseQueryOptions,
 } from "@tanstack/react-query";
 import { AxiosError } from "axios";
+import { toast } from "react-toastify";
 
-import apiClient from "../base/apiClient";
 import apiFactory from "../base/apiFactory";
 import {
   ExpenseData,
   ExpenseDataResponse,
   ExpensesDataResponse,
 } from "../types/ExpenseData";
-import queryClient from "../base/queryClient";
-import { toast } from "react-toastify";
+import { queryClient } from "../base/queryClient";
+import { PAGE_LIMIT } from "../constants";
 
 const URL = "expenses";
 
@@ -32,15 +31,7 @@ export const {
 
 const createResourceHooks = <T>(resourceUrl: string) => {
   return {
-    // Query to fetch all expenses
-    // useFetchExpenses: (
-    //   options?: UseQueryOptions<ExpensesDataResponse, AxiosError>
-    // ) =>
-    //   useQuery<ExpensesDataResponse, AxiosError>({
-    //     queryKey: [resourceUrl],
-    //     queryFn: () => getExpenses(),
-    //     ...options,
-    //   }),
+    // Query to fetch all expenses (infinity option)
     useFetchExpenses: (
       category = "",
       sortBy = "createdAt",
@@ -51,12 +42,17 @@ const createResourceHooks = <T>(resourceUrl: string) => {
         queryKey: [resourceUrl, category, sortBy, order],
 
         queryFn: ({ pageParam = 1 }) =>
-          getExpenses({ category, page: pageParam, limit: 4, sortBy, order }),
+          getExpenses({
+            category,
+            page: pageParam,
+            limit: PAGE_LIMIT,
+            sortBy,
+            order,
+          }),
         getNextPageParam: (lastPage, pages) => {
           const nextPage = pages.length + 1;
-          return lastPage.data.length === 4 ? nextPage : undefined;
+          return lastPage.data.length === PAGE_LIMIT ? nextPage : undefined;
         },
-
         ...options,
       }),
 
@@ -113,6 +109,7 @@ const createResourceHooks = <T>(resourceUrl: string) => {
         mutationFn: (id: number) => deleteExpense(id),
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: [resourceUrl] });
+          toast.success("Expense has been deleted");
         },
         ...options,
       }),

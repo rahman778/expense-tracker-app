@@ -1,17 +1,28 @@
 import { RouterProvider } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 
 import router from "./router";
 import "./App.css";
-import queryClient from "./base/queryClient";
+import { queryClient, persister } from "./base/queryClient";
+import OfflineIndicator from "./components/indicators/OfflineIndicator";
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{ persister }}
+      onSuccess={() => {
+        // resume mutations after initial restore from localStorage was successful
+        queryClient.resumePausedMutations().then(() => {
+          queryClient.invalidateQueries();
+        });
+      }}
+    >
       <RouterProvider router={router} />
       <ToastContainer />
-    </QueryClientProvider>
+      <OfflineIndicator />
+    </PersistQueryClientProvider>
   );
 }
 

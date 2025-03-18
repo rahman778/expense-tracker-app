@@ -5,10 +5,12 @@ export const sortingOptions = [
   { value: "createdAt_desc", label: "Date: Newest to Oldest" },
 ];
 
-
 export const categoryOptions = [
-    { value: "food", label: "Food" },
-    { value: "travel", label: "Travel" },
-    { value: "shopping", label: "Shopping" },
-  ];
-  
+  { label: "Food", value: "food" },
+  { label: "Transport", value: "transport" },
+  { label: "Travel", value: "travel" },
+  { label: "Shopping", value: "shopping" },
+  { label: "Entertainment", value: "entertainment" },
+  { label: "Utilities", value: "utilities" },
+  { label: "Health", value: "health" },
+];

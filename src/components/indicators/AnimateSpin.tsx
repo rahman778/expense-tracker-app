@@ -2,7 +2,7 @@ type Props = {
   text?: string;
 };
 
-const AnimateSpin = (props: Props) => {
+const AnimateSpin: React.FC = (props: Props) => {
   const { text = "loading..." } = props;
   return (
     <div className="flex items-center gap-x-3">

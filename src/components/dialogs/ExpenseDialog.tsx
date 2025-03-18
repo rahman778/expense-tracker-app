@@ -1,13 +1,17 @@
 import React, { useEffect } from "react";
 import ReactModal from "react-modal";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { Controller } from "react-hook-form";
+
 import Input from "../forms/Input";
-import { ExpenseData } from "../../types/ExpenseData";
 import TextArea from "../forms/TextArea";
 import Dropdown from "../forms/Dropdown";
+import AnimateSpin from "../indicators/AnimateSpin";
 import { expenseApiHooks } from "../../api/expenseApi";
-import { Controller } from "react-hook-form";
 import { categoryOptions } from "../../data/options";
+import { ExpenseData } from "../../types/ExpenseData";
+import useOnlineStatus from "../../hooks/useOnlineStatus";
+
+import { XMarkIcon } from "@heroicons/react/24/outline";
 
 type Props = {
   modalIsOpen: boolean;
@@ -34,6 +38,8 @@ const ExpenseDialog: React.FC<Props> = ({
     reset,
     clearErrors,
   } = formControl;
+
+  const isOnline = useOnlineStatus();
 
   const { useFetchExpenseById } = expenseApiHooks;
 
@@ -101,7 +107,7 @@ const ExpenseDialog: React.FC<Props> = ({
                   required: "Please enter amount",
                 })}
                 name="amount"
-                placeholder="Type your amount"
+                placeholder="Type your amount ($)"
                 labelText="Amount"
                 requiredMarker
                 type="number"
@@ -111,8 +117,6 @@ const ExpenseDialog: React.FC<Props> = ({
             </div>
 
             <div>
-              
-
               <Controller
                 name="category"
                 control={control}
@@ -132,7 +136,6 @@ const ExpenseDialog: React.FC<Props> = ({
                     helperText={
                       errors.category ? errors.category.message : null
                     }
-                    
                   />
                 )}
               />
@@ -160,9 +163,9 @@ const ExpenseDialog: React.FC<Props> = ({
               <button
                 type="submit"
                 className="button primary-btn click-transition py-1.5 min-w-24 mt-4"
-                disabled={isLoading}
+                disabled={isLoading || (expenseID !== null && !isOnline)}
               >
-                Save
+                {isLoading ? <AnimateSpin /> : "Save"}
               </button>
             </div>
           </form>

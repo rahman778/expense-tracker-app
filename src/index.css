@@ -14,7 +14,7 @@
   }
 
   .primary-btn-outline {
-    @apply text-gray-700 bg-transparent hover:bg-gray-400 border border-primary hover:text-gray-100;
+    @apply text-gray-700 bg-transparent hover:bg-primary/80 border border-primary hover:text-gray-100;
   }
 
   .input {
